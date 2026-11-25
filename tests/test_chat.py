@@ -55,6 +55,23 @@ class ChatTests(unittest.TestCase):
         events = self.sender.get_received()
         self.assertTrue(any(event["name"] == "error_message" for event in events))
 
+    def test_join_rejects_non_text_name(self):
+        self.sender.emit("join", {"name": 123, "room": "general"})
+        events = self.sender.get_received()
+        self.assertTrue(any(event["name"] == "error_message" for event in events))
+
+    def test_oversized_message_is_rejected(self):
+        self.join(self.sender, "Ada")
+        self.sender.emit("message", {"text": "x" * 501})
+        events = self.sender.get_received()
+        self.assertFalse(any(event["name"] == "message" for event in events))
+        self.assertTrue(any(event["name"] == "error_message" for event in events))
+
+    def test_home_page_loads(self):
+        response = chat.app.test_client().get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Room Chat", response.data)
+
 
 if __name__ == "__main__":
     unittest.main()
