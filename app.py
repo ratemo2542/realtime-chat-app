@@ -1,5 +1,5 @@
 """A minimal room-based real-time chat demo."""
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, session
 from flask_socketio import SocketIO, join_room, emit
 
 app=Flask(__name__)
@@ -20,23 +20,26 @@ socket.on('notice',data=>{const li=document.createElement('li');li.textContent=d
 </script></body></html>"""
 
 @app.get("/")
-def index(): return render_template_string(PAGE)
+def index():
+    return render_template_string(PAGE)
 
 @socketio.on("join")
 def on_join(data):
     name=str(data.get("name","Guest")).strip()[:24] or "Guest"
     room=str(data.get("room","general")).strip()[:32] or "general"
+    session["chat_name"] = name
+    session["chat_room"] = room
     join_room(room)
     emit("notice",{"text":f"{name} joined #{room}."},to=room)
 
 @socketio.on("message")
 def on_message(data):
     text=str(data.get("text","")).strip()[:500]
-    if not text: return
-    # Room is kept in the socket session after joining.
-    from flask import session
-    # Socket.IO room membership is not directly exposed; require room in payload and validate length.
-    room=str(data.get("room","general")).strip()[:32] or "general"
-    emit("message",{"name":"Guest","text":text},to=room)
+    room=session.get("chat_room")
+    name=session.get("chat_name","Guest")
+    if not text or not room:
+        return
+    emit("message",{"name":name,"text":text},to=room)
 
-if __name__=="__main__": socketio.run(app,host="127.0.0.1",port=5000,debug=True)
+if __name__=="__main__":
+    socketio.run(app,host="127.0.0.1",port=5000,debug=True)
